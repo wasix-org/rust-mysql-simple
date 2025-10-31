@@ -11,6 +11,8 @@ use io_enum::*;
 #[cfg(windows)]
 use named_pipe as np;
 
+#[cfg(all(target_os = "wasi", target_vendor = "wasmer"))]
+use std::os::wasi::io::{AsRawFd, RawFd};
 #[cfg(unix)]
 use std::os::{
     unix,
@@ -86,7 +88,11 @@ impl Stream {
     }
 
     #[cfg(all(not(unix), not(windows)))]
-    fn connect_socket(&mut self) -> MyResult<()> {
+    pub fn connect_socket(
+        _socket: &str,
+        _read_timeout: Option<Duration>,
+        _write_timeout: Option<Duration>,
+    ) -> MyResult<Stream> {
         unimplemented!("Sockets is not implemented on current platform");
     }
 
@@ -139,8 +145,14 @@ impl Stream {
         matches!(self, Stream::TcpStream(TcpStream::Insecure(_)))
     }
 
+    #[cfg(any(unix, windows))]
     pub fn is_socket(&self) -> bool {
         matches!(self, Stream::SocketStream(_))
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    pub fn is_socket(&self) -> bool {
+        false
     }
 
     #[cfg(all(not(feature = "native-tls"), not(feature = "rustls")))]
@@ -152,10 +164,11 @@ impl Stream {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, all(target_os = "wasi", target_vendor = "wasmer")))]
 impl AsRawFd for Stream {
     fn as_raw_fd(&self) -> RawFd {
         match self {
+            #[cfg(unix)]
             Stream::SocketStream(stream) => stream.get_ref().as_raw_fd(),
             Stream::TcpStream(stream) => stream.as_raw_fd(),
         }
@@ -171,7 +184,7 @@ pub enum TcpStream {
     Insecure(BufStream<net::TcpStream>),
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, all(target_os = "wasi", target_vendor = "wasmer")))]
 impl AsRawFd for TcpStream {
     fn as_raw_fd(&self) -> RawFd {
         match self {

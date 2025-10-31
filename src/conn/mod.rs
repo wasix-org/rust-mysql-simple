@@ -41,6 +41,8 @@ use std::{
 
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, RawFd};
+#[cfg(all(target_os = "wasi", target_vendor = "wasmer"))]
+use std::os::wasi::io::{AsRawFd, RawFd};
 
 use crate::{
     buffer_pool::{get_buffer, Buffer},
@@ -1346,7 +1348,7 @@ impl Conn {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, all(target_os = "wasi", target_vendor = "wasmer")))]
 impl AsRawFd for Conn {
     fn as_raw_fd(&self) -> RawFd {
         self.stream_ref().get_ref().as_raw_fd()
